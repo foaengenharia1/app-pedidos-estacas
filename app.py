@@ -127,9 +127,9 @@ col_b1, col_b2, col_b3 = st.columns(3)
 with col_b1:
     modelo = st.selectbox("Modelo da Estaca", lista_modelos)
 with col_b2:
-    comprimento = st.selectbox("Comprimento (Metros)", lista_comprimentos)
+    comprimento = st.selectbox("Comprimento (m)", lista_comprimentos)
 with col_b3:
-    quantidade = st.number_input("Quantidade", min_value=1, step=1)
+    quantidade = st.number_input("Quantidade (m)", min_value=1, step=1)
 
 if st.button("➕ Adicionar ao Pedido"):
     metragem_total = quantidade * int(comprimento)
