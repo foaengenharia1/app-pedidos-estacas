@@ -101,7 +101,7 @@ if 'pdf_pronto' in st.session_state:
 # Adiciona a logo da empresa
 # (Substitua "logo.png" pelo nome exato do seu arquivo de imagem)
 try:
-    st.image("logo.png", width=400) # O width controla a largura da imagem. Pode aumentar ou diminuir.
+    st.image("logo.png", width=750) # O width controla a largura da imagem. Pode aumentar ou diminuir.
 except:
     pass # Se ele não achar a imagem, ele ignora e não quebra o app
 st.title("📦 Solicitação de Estacas")
