@@ -97,6 +97,13 @@ if 'pdf_pronto' in st.session_state:
     st.stop() 
 
 # --- 3. O VISUAL DO FORMULÁRIO ---
+
+# Adiciona a logo da empresa
+# (Substitua "logo.png" pelo nome exato do seu arquivo de imagem)
+try:
+    st.image("logo.png", width=200) # O width controla a largura da imagem. Pode aumentar ou diminuir.
+except:
+    pass # Se ele não achar a imagem, ele ignora e não quebra o app
 st.title("📦 Solicitação de Estacas")
 
 st.subheader("1. Dados do Cliente e Entrega")
