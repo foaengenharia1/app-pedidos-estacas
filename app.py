@@ -135,11 +135,11 @@ if st.button("➕ Adicionar ao Pedido"):
     metragem_total = quantidade * int(comprimento)
     st.session_state['carrinho'].append({
         "Modelo": modelo,
-        "Comprimento": comprimento,
-        "Quantidade": quantidade,
-        "Metragem Total": metragem_total
+        "Comprimento(m)": comprimento,
+        "Quantidade(m)": quantidade,
+        "Metragem Total (m)": metragem_total
     })
-    st.success(f"{quantidade}x {modelo} adicionado(s) com sucesso!")
+    st.success(f"{quantidade}m de Estaca {modelo} com {comprimento} adicionado(s) com sucesso!")
 
 st.divider()
 
