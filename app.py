@@ -125,7 +125,7 @@ st.subheader("2. Adicionar Estacas ao Pedido")
 col_b1, col_b2, col_b3 = st.columns(3)
 
 with col_b1:
-    modelo = st.selectbox("Modelo da Estaca", lista_modelos)
+    modelo = st.selectbox("Estaca", lista_modelos)
 with col_b2:
     comprimento = st.selectbox("Comprimento (m)", lista_comprimentos)
 with col_b3:
