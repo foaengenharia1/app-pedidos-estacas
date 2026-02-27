@@ -40,7 +40,7 @@ def gerar_recibo_pdf(id_pedido, data, solicitante, cliente, obra, data_desejada,
     pdf.cell(0, 8, f"Solicitante: {solicitante}", ln=True)
     pdf.cell(0, 8, f"Cliente/Empresa: {cliente}", ln=True)
     pdf.cell(0, 8, f"Obra/Local: {obra}", ln=True)
-    pdf.cell(0, 8, f"Data Desejada: {data_desejada}", ln=True)
+    pdf.cell(0, 8, f"Data de Entrega: {data_desejada}", ln=True)
     pdf.cell(0, 8, f"Veiculo Selecionado: {veiculo}", ln=True)
     if obs:
         pdf.cell(0, 8, f"Observacoes: {obs}", ln=True)
