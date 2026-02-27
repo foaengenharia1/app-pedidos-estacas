@@ -27,11 +27,14 @@ PESO_PADRAO = 100
 def gerar_recibo_pdf(id_pedido, data, solicitante, cliente, obra, data_desejada, veiculo, obs, carrinho):
     pdf = FPDF()
     pdf.add_page()
+    
     pdf.set_font("helvetica", "B", 16)
     pdf.cell(0, 10, "Comprovante de Pedido - Estacas", ln=True, align="C")
     pdf.ln(5)
+    
     pdf.set_font("helvetica", "B", 12)
     pdf.cell(0, 8, f"ID do Pedido: {id_pedido}", ln=True)
+    
     pdf.set_font("helvetica", "", 12)
     pdf.cell(0, 8, f"Data da Solicitacao: {data}", ln=True)
     pdf.cell(0, 8, f"Solicitante: {solicitante}", ln=True)
@@ -42,12 +45,21 @@ def gerar_recibo_pdf(id_pedido, data, solicitante, cliente, obra, data_desejada,
     if obs:
         pdf.cell(0, 8, f"Observacoes: {obs}", ln=True)
     pdf.ln(5)
+    
     pdf.set_font("helvetica", "B", 12)
     pdf.cell(0, 10, "Itens Solicitados:", ln=True)
+    
     pdf.set_font("helvetica", "", 12)
     for item in carrinho:
         texto_item = f"- {item['Quantidade']}x modelo {item['Modelo']} ({item['Comprimento']}m) | Metragem: {item['Metragem Total']}m | Peso: {item['Peso (kg)']:,.0f} kg"
         pdf.cell(0, 8, texto_item, ln=True)
+        
+    # --- NOVA PARTE: PESO TOTAL NO PDF ---
+    pdf.ln(5) # Dá um pequeno espaço depois da lista
+    pdf.set_font("helvetica", "B", 12) # Volta a fonte para Negrito (Bold)
+    peso_total = sum(item['Peso (kg)'] for item in carrinho)
+    pdf.cell(0, 10, f"Peso total da carga: {peso_total:,.0f} kg.", ln=True)
+    
     return bytes(pdf.output())
 
 # --- 1. CONFIGURAÇÃO E MEMÓRIA (CACHE) ---
@@ -111,10 +123,13 @@ if 'pdf_pronto' in st.session_state:
     st.stop() 
 
 # --- 3. O VISUAL DO FORMULÁRIO ---
+try:
+    st.image("logo.png", width=200)
+except:
+    pass
 
 st.title("📦 Solicitação de Estacas")
 
-# Seleção de Transporte
 st.subheader("1. Logística e Transporte")
 tipo_veiculo = st.radio(
     "Escolha o tipo de transporte desejado:",
@@ -167,7 +182,7 @@ if st.button("➕ Adicionar ao Pedido"):
 
 st.divider()
 
-# --- 4. RESUMO DA CARGA (AGORA COM BOTÃO DE EXCLUIR) ---
+# --- 4. RESUMO DA CARGA ---
 st.subheader("4. Resumo da Carga")
 
 peso_total_carrinho = sum(item['Peso (kg)'] for item in st.session_state['carrinho'])
@@ -177,17 +192,14 @@ if len(st.session_state['carrinho']) > 0:
     
     with col_c1:
         st.write("**Itens no pedido:**")
-        # Criamos um "loop" que mostra cada item com um botão de lixeira ao lado
         for i, item in enumerate(st.session_state['carrinho']):
             c_texto, c_botao = st.columns([4, 1])
             with c_texto:
-                # O st.info cria uma caixa azul bonita para o item
                 st.info(f"**{item['Quantidade']}x {item['Modelo']}** ({item['Comprimento']}m) | {item['Peso (kg)']:,.0f} kg")
             with c_botao:
-                # A chave (key) precisa ser única para cada botão, por isso usamos o 'i'
                 if st.button("🗑️", key=f"excluir_{i}", help="Remover este item"):
-                    st.session_state['carrinho'].pop(i) # Remove da memória
-                    st.rerun() # Atualiza a página imediatamente para recalcular o peso
+                    st.session_state['carrinho'].pop(i)
+                    st.rerun() 
         
     with col_c2:
         veiculo_nome = "Munk" if "Munk" in tipo_veiculo else "Prancha"
