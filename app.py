@@ -7,8 +7,25 @@ import pandas as pd
 from fpdf import FPDF
 import json
 
+# --- TABELA DE PESOS DAS ESTACAS ---
+# Quantidade de KG por metro linear
+PESO_POR_METRO = {
+    "17x17": 70,
+    "ICP360": 130,
+    "ETR229": 66,
+    "ETR269": 90,
+    "ETR360": 137, 
+    "ETR406": 159,
+    "ETR445": 201,
+    "ETR525": 250,
+    "ETR605": 325,
+    "ETR707": 400,
+    "ETR809": 530
+}
+PESO_PADRAO = 100 # Peso de segurança caso algum modelo não esteja na lista
+
 # --- FUNÇÃO PARA GERAR O PDF ---
-def gerar_recibo_pdf(id_pedido, data, solicitante, cliente, obra, data_desejada, obs, carrinho):
+def gerar_recibo_pdf(id_pedido, data, solicitante, cliente, obra, data_desejada, veiculo, obs, carrinho):
     pdf = FPDF()
     pdf.add_page()
     pdf.set_font("helvetica", "B", 16)
@@ -22,6 +39,7 @@ def gerar_recibo_pdf(id_pedido, data, solicitante, cliente, obra, data_desejada,
     pdf.cell(0, 8, f"Cliente/Empresa: {cliente}", ln=True)
     pdf.cell(0, 8, f"Obra/Local: {obra}", ln=True)
     pdf.cell(0, 8, f"Data Desejada: {data_desejada}", ln=True)
+    pdf.cell(0, 8, f"Veiculo Selecionado: {veiculo}", ln=True)
     if obs:
         pdf.cell(0, 8, f"Observacoes: {obs}", ln=True)
     pdf.ln(5)
@@ -29,7 +47,7 @@ def gerar_recibo_pdf(id_pedido, data, solicitante, cliente, obra, data_desejada,
     pdf.cell(0, 10, "Itens Solicitados:", ln=True)
     pdf.set_font("helvetica", "", 12)
     for item in carrinho:
-        texto_item = f"- {item['Quantidade']}x modelo {item['Modelo']} ({item['Comprimento']}m) | Metragem: {item['Metragem Total']}m"
+        texto_item = f"- {item['Quantidade']}x modelo {item['Modelo']} ({item['Comprimento']}m) | Metragem: {item['Metragem Total']}m | Peso: {item['Peso (kg)']:,.0f} kg"
         pdf.cell(0, 8, texto_item, ln=True)
     return bytes(pdf.output())
 
@@ -39,15 +57,13 @@ escopos = [
     "https://www.googleapis.com/auth/drive"
 ]
 
-# 1.1 Cache da Conexão: Faz o login apenas 1 vez e guarda a conexão aberta
 @st.cache_resource
 def conectar_planilha():
     creds_dict = json.loads(st.secrets["google_credentials"])
     credenciais = Credentials.from_service_account_info(creds_dict, scopes=escopos)
     cliente_gspread = gspread.authorize(credenciais)
-    return cliente_gspread.open("Sistema de Logística - Estacas") # ⚠️ Lembre-se de colocar o nome da sua planilha aqui
+    return cliente_gspread.open("Sistema de Logística - Estacas") 
 
-# 1.2 Cache dos Dados: Lê a aba CADASTROS e guarda na memória por 10 minutos (600 segundos)
 @st.cache_data(ttl=600)
 def buscar_cadastros():
     planilha = conectar_planilha()
@@ -57,7 +73,6 @@ def buscar_cadastros():
     comprimentos = aba_metragens.col_values(1)[1:]
     return modelos, comprimentos
 
-# Tenta conectar e puxar os dados usando a memória
 try:
     planilha = conectar_planilha()
     aba_pedidos = planilha.worksheet("Pedidos")
@@ -99,7 +114,20 @@ if 'pdf_pronto' in st.session_state:
 # --- 3. O VISUAL DO FORMULÁRIO ---
 st.title("📦 Solicitação de Estacas")
 
-st.subheader("1. Dados do Cliente e Entrega")
+# Seleção de Transporte
+st.subheader("1. Logística e Transporte")
+tipo_veiculo = st.radio(
+    "Escolha o tipo de transporte desejado:",
+    ["Carreta Munk (Capacidade: 23.500 kg)", "Prancha (Capacidade: 26.000 kg)"],
+    horizontal=True
+)
+
+# Define a capacidade matemática com base na escolha
+capacidade_maxima = 23500 if "Munk" in tipo_veiculo else 26000
+
+st.divider()
+
+st.subheader("2. Dados do Cliente e Entrega")
 col_a1, col_a2 = st.columns(2)
 
 with col_a1:
@@ -114,7 +142,7 @@ observacoes = st.text_area("Observações Gerais (Opcional)")
 
 st.divider() 
 
-st.subheader("2. Adicionar Estacas ao Pedido")
+st.subheader("3. Adicionar Estacas ao Pedido")
 col_b1, col_b2, col_b3 = st.columns(3)
 
 with col_b1:
@@ -126,21 +154,53 @@ with col_b3:
 
 if st.button("➕ Adicionar ao Pedido"):
     metragem_total = quantidade * int(comprimento)
+    
+    # Calcula o peso (Metragem x Peso daquele modelo específico)
+    peso_linear = PESO_POR_METRO.get(modelo, PESO_PADRAO)
+    peso_total_item = metragem_total * peso_linear
+    
     st.session_state['carrinho'].append({
         "Modelo": modelo,
         "Comprimento": comprimento,
         "Quantidade": quantidade,
-        "Metragem Total": metragem_total
+        "Metragem Total": metragem_total,
+        "Peso (kg)": peso_total_item
     })
-    st.success(f"{quantidade}x {modelo} adicionado(s) com sucesso!")
+    st.success(f"{quantidade}x {modelo} adicionado(s)! Peso estimado: {peso_total_item:,.0f} kg")
 
 st.divider()
 
-st.subheader("3. Resumo do Pedido")
+st.subheader("4. Resumo da Carga")
+
+# Lógica do painel de peso
+peso_total_carrinho = sum(item['Peso (kg)'] for item in st.session_state['carrinho'])
 
 if len(st.session_state['carrinho']) > 0:
-    df_carrinho = pd.DataFrame(st.session_state['carrinho'])
-    st.dataframe(df_carrinho, use_container_width=True)
+    col_c1, col_c2 = st.columns([2, 1])
+    
+    with col_c1:
+        df_carrinho = pd.DataFrame(st.session_state['carrinho'])
+        st.dataframe(df_carrinho, use_container_width=True)
+        
+    with col_c2:
+        # Mostra o painel com o peso e a barra de progresso
+        veiculo_nome = "Munk" if "Munk" in tipo_veiculo else "Prancha"
+        st.metric(
+            label=f"Peso no Veículo ({veiculo_nome})", 
+            value=f"{peso_total_carrinho:,.0f} kg", 
+            delta=f"Capacidade: {capacidade_maxima:,.0f} kg",
+            delta_color="off"
+        )
+        
+        percentual_carga = min(peso_total_carrinho / capacidade_maxima, 1.0)
+        
+        if peso_total_carrinho > capacidade_maxima:
+            st.error("⚠️ Excesso de Carga! O peso ultrapassa a capacidade do veículo.")
+            st.progress(1.0)
+        else:
+            st.progress(percentual_carga)
+    
+    st.write("") # Espaçamento
     
     if st.button("🚀 Finalizar e Enviar Pedido", type="primary"):
         if solicitante == "" or cliente_empresa == "" or obra_local == "":
@@ -152,17 +212,19 @@ if len(st.session_state['carrinho']) > 0:
                 data_desejada_str = data_desejada.strftime("%d/%m/%Y")
                 
                 try:
-                    linha_pedido = [id_pedido, data_atual, solicitante, cliente_empresa, obra_local, data_desejada_str, observacoes, "Pendente"]
+                    # Incluindo a coluna 'tipo_veiculo' na aba de Pedidos
+                    linha_pedido = [id_pedido, data_atual, solicitante, cliente_empresa, obra_local, data_desejada_str, tipo_veiculo, observacoes, "Pendente"]
                     aba_pedidos.append_row(linha_pedido)
                     
                     para_inserir = []
                     for item in st.session_state['carrinho']:
                         id_item = str(uuid.uuid4())[:8].upper()
-                        linha_item = [id_item, id_pedido, item["Modelo"], item["Comprimento"], item["Quantidade"], item["Metragem Total"]]
+                        # Incluindo a coluna 'Peso (kg)' na aba de Itens
+                        linha_item = [id_item, id_pedido, item["Modelo"], item["Comprimento"], item["Quantidade"], item["Metragem Total"], item["Peso (kg)"]]
                         para_inserir.append(linha_item)
                     aba_itens.append_rows(para_inserir)
                     
-                    pdf_bytes = gerar_recibo_pdf(id_pedido, data_atual, solicitante, cliente_empresa, obra_local, data_desejada_str, observacoes, st.session_state['carrinho'])
+                    pdf_bytes = gerar_recibo_pdf(id_pedido, data_atual, solicitante, cliente_empresa, obra_local, data_desejada_str, tipo_veiculo, observacoes, st.session_state['carrinho'])
                     
                     st.session_state['pdf_pronto'] = pdf_bytes
                     st.session_state['id_pedido'] = id_pedido
