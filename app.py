@@ -8,7 +8,6 @@ from fpdf import FPDF
 import json
 
 # --- TABELA DE PESOS DAS ESTACAS ---
-# Quantidade de KG por metro linear
 PESO_POR_METRO = {
     "17x17": 70,
     "ICP360": 130,
@@ -22,7 +21,7 @@ PESO_POR_METRO = {
     "ETR707": 400,
     "ETR809": 530
 }
-PESO_PADRAO = 100 # Peso de segurança caso algum modelo não esteja na lista
+PESO_PADRAO = 100 
 
 # --- FUNÇÃO PARA GERAR O PDF ---
 def gerar_recibo_pdf(id_pedido, data, solicitante, cliente, obra, data_desejada, veiculo, obs, carrinho):
@@ -112,6 +111,11 @@ if 'pdf_pronto' in st.session_state:
     st.stop() 
 
 # --- 3. O VISUAL DO FORMULÁRIO ---
+try:
+    st.image("logo.png", width=200)
+except:
+    pass
+
 st.title("📦 Solicitação de Estacas")
 
 # Seleção de Transporte
@@ -122,7 +126,6 @@ tipo_veiculo = st.radio(
     horizontal=True
 )
 
-# Define a capacidade matemática com base na escolha
 capacidade_maxima = 23500 if "Munk" in tipo_veiculo else 26000
 
 st.divider()
@@ -154,8 +157,6 @@ with col_b3:
 
 if st.button("➕ Adicionar ao Pedido"):
     metragem_total = quantidade * int(comprimento)
-    
-    # Calcula o peso (Metragem x Peso daquele modelo específico)
     peso_linear = PESO_POR_METRO.get(modelo, PESO_PADRAO)
     peso_total_item = metragem_total * peso_linear
     
@@ -170,20 +171,29 @@ if st.button("➕ Adicionar ao Pedido"):
 
 st.divider()
 
+# --- 4. RESUMO DA CARGA (AGORA COM BOTÃO DE EXCLUIR) ---
 st.subheader("4. Resumo da Carga")
 
-# Lógica do painel de peso
 peso_total_carrinho = sum(item['Peso (kg)'] for item in st.session_state['carrinho'])
 
 if len(st.session_state['carrinho']) > 0:
     col_c1, col_c2 = st.columns([2, 1])
     
     with col_c1:
-        df_carrinho = pd.DataFrame(st.session_state['carrinho'])
-        st.dataframe(df_carrinho, use_container_width=True)
+        st.write("**Itens no pedido:**")
+        # Criamos um "loop" que mostra cada item com um botão de lixeira ao lado
+        for i, item in enumerate(st.session_state['carrinho']):
+            c_texto, c_botao = st.columns([4, 1])
+            with c_texto:
+                # O st.info cria uma caixa azul bonita para o item
+                st.info(f"**{item['Quantidade']}x {item['Modelo']}** ({item['Comprimento']}m) | {item['Peso (kg)']:,.0f} kg")
+            with c_botao:
+                # A chave (key) precisa ser única para cada botão, por isso usamos o 'i'
+                if st.button("🗑️", key=f"excluir_{i}", help="Remover este item"):
+                    st.session_state['carrinho'].pop(i) # Remove da memória
+                    st.rerun() # Atualiza a página imediatamente para recalcular o peso
         
     with col_c2:
-        # Mostra o painel com o peso e a barra de progresso
         veiculo_nome = "Munk" if "Munk" in tipo_veiculo else "Prancha"
         st.metric(
             label=f"Peso no Veículo ({veiculo_nome})", 
@@ -200,7 +210,7 @@ if len(st.session_state['carrinho']) > 0:
         else:
             st.progress(percentual_carga)
     
-    st.write("") # Espaçamento
+    st.write("") 
     
     if st.button("🚀 Finalizar e Enviar Pedido", type="primary"):
         if solicitante == "" or cliente_empresa == "" or obra_local == "":
@@ -212,14 +222,12 @@ if len(st.session_state['carrinho']) > 0:
                 data_desejada_str = data_desejada.strftime("%d/%m/%Y")
                 
                 try:
-                    # Incluindo a coluna 'tipo_veiculo' na aba de Pedidos
                     linha_pedido = [id_pedido, data_atual, solicitante, cliente_empresa, obra_local, data_desejada_str, tipo_veiculo, observacoes, "Pendente"]
                     aba_pedidos.append_row(linha_pedido)
                     
                     para_inserir = []
                     for item in st.session_state['carrinho']:
                         id_item = str(uuid.uuid4())[:8].upper()
-                        # Incluindo a coluna 'Peso (kg)' na aba de Itens
                         linha_item = [id_item, id_pedido, item["Modelo"], item["Comprimento"], item["Quantidade"], item["Metragem Total"], item["Peso (kg)"]]
                         para_inserir.append(linha_item)
                     aba_itens.append_rows(para_inserir)
