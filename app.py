@@ -123,11 +123,6 @@ if 'pdf_pronto' in st.session_state:
     st.stop() 
 
 # --- 3. O VISUAL DO FORMULÁRIO ---
-try:
-    st.image("logo.png", width=200)
-except:
-    pass
-
 st.title("📦 Solicitação de Estacas")
 
 st.subheader("1. Logística e Transporte")
