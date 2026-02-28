@@ -154,10 +154,6 @@ if 'pdf_pronto' in st.session_state:
     st.stop() 
 
 # --- 3. O VISUAL DO FORMULÁRIO PRINCIPAL ---
-try:
-    st.image("logo.png", width=200)
-except:
-    pass
 
 st.title("📦 Solicitação de Estacas")
 
