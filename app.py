@@ -7,6 +7,40 @@ import pandas as pd
 from fpdf import FPDF
 import json
 
+# --- CONFIGURAÇÃO DA PÁGINA ---
+st.set_page_config(page_title="Pedido de Estacas", page_icon="📦")
+
+# --- 0. TELA DE LOGIN (SEGURANÇA) ---
+# Altere a senha abaixo para a que você deseja fornecer aos clientes
+SENHA_CORRETA = "FOA2026"
+
+if 'autenticado' not in st.session_state:
+    st.session_state['autenticado'] = False
+
+if not st.session_state['autenticado']:
+    try:
+        st.image("logo.png", width=200)
+    except:
+        pass
+    
+    st.title("🔒 Acesso Restrito")
+    st.markdown("Bem-vindo ao sistema de logística. Insira a senha de acesso para realizar o seu pedido.")
+    
+    senha_digitada = st.text_input("Senha de Acesso", type="password")
+    
+    if st.button("Entrar", type="primary"):
+        if senha_digitada == SENHA_CORRETA:
+            st.session_state['autenticado'] = True
+            st.rerun() # Atualiza a página para liberar o formulário
+        else:
+            st.error("❌ Senha incorreta. Verifique com a equipe comercial.")
+            
+    st.stop() # ⚠️ MAGIA AQUI: Se não estiver autenticado, o código para de ler aqui e esconde o resto!
+
+# ==========================================
+# SE O CLIENTE ACERTOU A SENHA, O CÓDIGO CONTINUA ABAIXO:
+# ==========================================
+
 # --- TABELA DE PESOS DAS ESTACAS ---
 PESO_POR_METRO = {
     "17x17": 70,
@@ -40,7 +74,7 @@ def gerar_recibo_pdf(id_pedido, data, solicitante, cliente, obra, data_desejada,
     pdf.cell(0, 8, f"Solicitante: {solicitante}", ln=True)
     pdf.cell(0, 8, f"Cliente/Empresa: {cliente}", ln=True)
     pdf.cell(0, 8, f"Obra/Local: {obra}", ln=True)
-    pdf.cell(0, 8, f"Data de Entrega: {data_desejada}", ln=True)
+    pdf.cell(0, 8, f"Data Desejada: {data_desejada}", ln=True)
     pdf.cell(0, 8, f"Veiculo Selecionado: {veiculo}", ln=True)
     if obs:
         pdf.cell(0, 8, f"Observacoes: {obs}", ln=True)
@@ -54,9 +88,8 @@ def gerar_recibo_pdf(id_pedido, data, solicitante, cliente, obra, data_desejada,
         texto_item = f"- {item['Quantidade']}x modelo {item['Modelo']} ({item['Comprimento']}m) | Metragem: {item['Metragem Total']}m | Peso: {item['Peso (kg)']:,.0f} kg"
         pdf.cell(0, 8, texto_item, ln=True)
         
-    # --- NOVA PARTE: PESO TOTAL NO PDF ---
-    pdf.ln(5) # Dá um pequeno espaço depois da lista
-    pdf.set_font("helvetica", "B", 12) # Volta a fonte para Negrito (Bold)
+    pdf.ln(5) 
+    pdf.set_font("helvetica", "B", 12) 
     peso_total = sum(item['Peso (kg)'] for item in carrinho)
     pdf.cell(0, 10, f"Peso total da carga: {peso_total:,.0f} kg.", ln=True)
     
@@ -102,8 +135,6 @@ except Exception as e:
 if 'carrinho' not in st.session_state:
     st.session_state['carrinho'] = []
 
-st.set_page_config(page_title="Pedido de Estacas", page_icon="📦")
-
 # --- TELA DE SUCESSO E DOWNLOAD ---
 if 'pdf_pronto' in st.session_state:
     st.title("✅ Pedido Concluído!")
@@ -122,7 +153,12 @@ if 'pdf_pronto' in st.session_state:
         st.rerun()
     st.stop() 
 
-# --- 3. O VISUAL DO FORMULÁRIO ---
+# --- 3. O VISUAL DO FORMULÁRIO PRINCIPAL ---
+try:
+    st.image("logo.png", width=200)
+except:
+    pass
+
 st.title("📦 Solicitação de Estacas")
 
 st.subheader("1. Logística e Transporte")
