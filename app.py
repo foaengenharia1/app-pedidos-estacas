@@ -101,11 +101,13 @@ if st.session_state['perfil'] == "admin":
     
     with st.spinner("A carregar pedidos do banco de dados..."):
         try:
-            # Puxa todos os dados da aba Pedidos
-            dados_pedidos = aba_pedidos.get_all_records()
+            # Puxa todos os dados como uma grade de texto puro 
+            dados_pedidos = aba_pedidos.get_all_values()
             
-            if dados_pedidos:
-                df_pedidos = pd.DataFrame(dados_pedidos)
+            # Verifica se a planilha tem mais de 1 linha (ou seja, tem o cabeçalho + algum pedido)
+            if len(dados_pedidos) > 1:
+                # Cria a tabela forçando a linha 0 como título e da linha 1 em diante como dados
+                df_pedidos = pd.DataFrame(dados_pedidos[1:], columns=dados_pedidos[0])
                 
                 # Inverte a ordem para mostrar os pedidos mais novos no topo
                 df_pedidos = df_pedidos.iloc[::-1]
@@ -120,7 +122,7 @@ if st.session_state['perfil'] == "admin":
         except Exception as e:
             st.error(f"Erro ao carregar os dados: {e}")
             
-    st.stop() # ⚠️ MAGIA: Faz o código parar aqui para o Admin não ver o formulário do cliente abaixo.
+    st.stop() 
 
 
 # ==========================================
