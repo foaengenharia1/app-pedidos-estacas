@@ -124,7 +124,7 @@ if st.session_state['perfil'] == "admin":
                 
                 with col_s2:
                     # Pode adicionar os status que fizerem sentido para o seu negócio
-                    novo_status = st.selectbox("Novo Status", ["Pendente", "Carregando", "Em Transporte", "Entregue", "Cancelado"])
+                    novo_status = st.selectbox("Novo Status", ["Pendente","Entregue", "Cancelado"])
                 
                 with col_s3:
                     st.write("") # Espaçamento para alinhar o botão com as caixas
