@@ -8,11 +8,11 @@ from fpdf import FPDF
 import json
 
 # --- CONFIGURAÇÃO DA PÁGINA ---
-st.set_page_config(page_title="Sistema de Logística", page_icon="📦", layout="wide") # Mudei para layout wide para a tabela do admin caber melhor
+st.set_page_config(page_title="Sistema de Logística", page_icon="📦", layout="wide") 
 
 # --- 0. TELA DE LOGIN (SEGURANÇA E PERFIS) ---
 SENHA_CLIENTE = st.secrets["senha_cliente"]
-SENHA_ADMIN = st.secrets["senha_admin"]
+SENHA_ADMIN = st.secrets["senha_admin"] 
 
 if 'autenticado' not in st.session_state:
     st.session_state['autenticado'] = False
@@ -84,9 +84,8 @@ except Exception as e:
 # ==========================================
 if st.session_state['perfil'] == "admin":
     st.title("⚙️ Painel do Administrador")
-    st.markdown("Visão geral de todos os pedidos solicitados.")
+    st.markdown("Visão geral e gestão de pedidos.")
     
-    # Botão para atualizar e sair
     col_btn1, col_btn2 = st.columns([1, 10])
     with col_btn1:
         if st.button("🔄 Atualizar Dados"):
@@ -101,35 +100,63 @@ if st.session_state['perfil'] == "admin":
     
     with st.spinner("A carregar pedidos do banco de dados..."):
         try:
-            # Puxa todos os dados como uma grade de texto puro 
             dados_pedidos = aba_pedidos.get_all_values()
             
-            # Verifica se a planilha tem mais de 1 linha (ou seja, tem o cabeçalho + algum pedido)
             if len(dados_pedidos) > 1:
-                # Cria a tabela forçando a linha 0 como título e da linha 1 em diante como dados
                 df_pedidos = pd.DataFrame(dados_pedidos[1:], columns=dados_pedidos[0])
+                df_pedidos_inverso = df_pedidos.iloc[::-1] # Mostra os mais recentes primeiro
                 
-                # Inverte a ordem para mostrar os pedidos mais novos no topo
-                df_pedidos = df_pedidos.iloc[::-1]
+                st.dataframe(df_pedidos_inverso, use_container_width=True, hide_index=True)
+                st.info(f"Total de pedidos registados: {len(df_pedidos)}")
                 
-                # Exibe a tabela interativa na tela
-                st.dataframe(df_pedidos, use_container_width=True, hide_index=True)
+                st.divider()
                 
-                st.info(f"Total de pedidos registrados: {len(df_pedidos)}")
+                # --- NOVA SECÇÃO: ATUALIZAR STATUS ---
+                st.subheader("Mudar Status do Pedido")
+                
+                # Extrai apenas os IDs (primeira coluna) que não estejam vazios
+                lista_ids = [str(id) for id in df_pedidos[df_pedidos.columns[0]].tolist() if str(id).strip() != ""]
+                
+                col_s1, col_s2, col_s3 = st.columns(3)
+                
+                with col_s1:
+                    pedido_selecionado = st.selectbox("Selecione o ID do Pedido", [""] + lista_ids)
+                
+                with col_s2:
+                    # Pode adicionar os status que fizerem sentido para o seu negócio
+                    novo_status = st.selectbox("Novo Status", ["Pendente", "Em Produção", "Em Transporte", "Entregue", "Cancelado"])
+                
+                with col_s3:
+                    st.write("") # Espaçamento para alinhar o botão com as caixas
+                    st.write("") 
+                    if st.button("Atualizar Status", type="primary"):
+                        if pedido_selecionado == "":
+                            st.warning("⚠️ Selecione um ID de Pedido primeiro.")
+                        else:
+                            with st.spinner("A atualizar no Google Sheets..."):
+                                # 1. Procura em que célula (linha/coluna) está este ID
+                                celula_id = aba_pedidos.find(pedido_selecionado)
+                                
+                                if celula_id:
+                                    # 2. Atualiza a coluna 9 (Status) da mesma linha
+                                    aba_pedidos.update_cell(celula_id.row, 9, novo_status)
+                                    st.success(f"✅ Pedido {pedido_selecionado} alterado para: {novo_status}")
+                                    st.rerun() # Recarrega a página para a tabela mostrar a alteração
+                                else:
+                                    st.error("❌ ID não encontrado na folha de cálculo.")
+                                    
             else:
-                st.warning("Ainda não há nenhum pedido registrado na planilha.")
+                st.warning("Ainda não há nenhum pedido registado na folha de cálculo.")
                 
         except Exception as e:
             st.error(f"Erro ao carregar os dados: {e}")
             
     st.stop() 
 
-
 # ==========================================
 # ÁREA DO CLIENTE (FORMULÁRIO DE PEDIDOS)
 # ==========================================
 
-# --- TABELA DE PESOS DAS ESTACAS ---
 PESO_POR_METRO = {
     "17x17": 70, "ICP360": 130, "ETR229": 66, "ETR269": 90, "ETR360": 137, 
     "ETR406": 159, "ETR445": 201, "ETR525": 250, "ETR605": 325, "ETR707": 400, "ETR809": 530
@@ -166,13 +193,12 @@ def gerar_recibo_pdf(id_pedido, data, solicitante, cliente, obra, data_desejada,
     pdf.cell(0, 10, f"Peso total da carga: {peso_total:,.0f} kg.", ln=True)
     return bytes(pdf.output())
 
-# --- MEMÓRIA DO APP (CARRINHO) ---
 if 'carrinho' not in st.session_state:
     st.session_state['carrinho'] = []
 
 if 'pdf_pronto' in st.session_state:
     st.title("✅ Pedido Concluído!")
-    st.success("Seu pedido foi recebido com sucesso pela nossa equipe de logística.")
+    st.success("Seu pedido foi recebido com sucesso pela nossa equipa de logística.")
     st.download_button("📄 Baixar Comprovante em PDF", data=st.session_state['pdf_pronto'], file_name=f"Pedido_{st.session_state['id_pedido']}.pdf", mime="application/pdf", type="primary")
     st.divider()
     if st.button("🔄 Fazer Novo Pedido"):
@@ -181,13 +207,7 @@ if 'pdf_pronto' in st.session_state:
         st.rerun()
     st.stop() 
 
-# --- VISUAL DO FORMULÁRIO PRINCIPAL ---
-try:
-    st.image("logo.png", width=200)
-except:
-    pass
 
-# Botão de sair para o cliente também
 col_sair1, col_sair2 = st.columns([10, 2])
 with col_sair2:
     if st.button("Sair"):
