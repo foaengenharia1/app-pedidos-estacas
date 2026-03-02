@@ -99,81 +99,100 @@ if st.session_state['perfil'] == "admin":
     
     with st.spinner("A carregar e processar dados do banco..."):
         try:
-            # Puxamos as DUAS abas agora para poder cruzar as informações
             dados_pedidos = aba_pedidos.get_all_values()
             dados_itens = aba_itens.get_all_values()
             
             if len(dados_pedidos) > 1:
                 df_pedidos = pd.DataFrame(dados_pedidos[1:], columns=dados_pedidos[0])
-                # Carrega os itens apenas se existirem
                 df_itens = pd.DataFrame(dados_itens[1:], columns=dados_itens[0]) if len(dados_itens) > 1 else pd.DataFrame()
                 
-                # --- CRIAÇÃO DAS ABAS (TABS) ---
                 tab_visao, tab_gestao = st.tabs(["📊 Visão Estratégica", "📋 Gestão e Status"])
                 
-                # --- ABA 1: VISÃO ESTRATÉGICA (O SEU NOVO DASHBOARD) ---
+                # --- ABA 1: VISÃO ESTRATÉGICA (DASHBOARD ATUALIZADO) ---
                 with tab_visao:
                     st.subheader("Planejamento de Cargas e Produção")
                     
-                    # 1. Filtro de Data
+                    # 1. Filtro de Data com Calendário
                     col_data_desejada = df_pedidos.columns[5] # Coluna 'Data Desejada'
-                    datas_unicas = sorted(df_pedidos[col_data_desejada].unique())
                     
-                    filtro_data = st.selectbox(
-                        "📅 Selecione a Data para planejar o carregamento:", 
-                        ["Todas as Datas"] + datas_unicas
-                    )
+                    usar_filtro = st.toggle("Filtrar por uma data específica", value=True)
                     
-                    # Aplica o filtro
-                    if filtro_data != "Todas as Datas":
-                        df_pedidos_filtrado = df_pedidos[df_pedidos[col_data_desejada] == filtro_data]
+                    if usar_filtro:
+                        data_selecionada = st.date_input("📅 Selecione a Data para planejar o carregamento:", format="DD/MM/YYYY")
+                        # Converte a data selecionada para o texto exato do Excel
+                        data_str = data_selecionada.strftime("%d/%m/%Y")
+                        df_pedidos_filtrado = df_pedidos[df_pedidos[col_data_desejada] == data_str]
+                        data_exibicao = data_str
                     else:
                         df_pedidos_filtrado = df_pedidos
+                        data_exibicao = "Todas as Datas"
                         
-                    st.write("") # Espaço
+                    st.write("") 
                     
                     if not df_pedidos_filtrado.empty:
-                        # Métricas principais
                         col_m1, col_m2 = st.columns(2)
                         col_m1.metric("Total de Pedidos (Cargas)", len(df_pedidos_filtrado))
-                        col_m2.metric("Data Analisada", filtro_data)
+                        col_m2.metric("Data Analisada", data_exibicao)
                         
                         st.divider()
                         
                         col_graf1, col_graf2 = st.columns(2)
                         
-                        # Análise de Carretas por Cliente
+                        # --- NOVO: Análise de Carretas por Cliente, Obra e Veículo ---
                         with col_graf1:
                             st.markdown("**🚚 Previsão de Veículos por Cliente**")
-                            col_cliente = df_pedidos.columns[3] # Coluna 'Cliente'
-                            cargas_por_cliente = df_pedidos_filtrado.groupby(col_cliente).size().reset_index(name='Quantidade de Veículos')
+                            col_cliente = df_pedidos.columns[3]
+                            col_obra = df_pedidos.columns[4]
+                            col_veiculo = df_pedidos.columns[6]
+                            
+                            cargas_por_cliente = df_pedidos_filtrado.groupby([col_cliente, col_obra, col_veiculo]).size().reset_index(name='Quantidade de Veículos')
+                            
+                            cargas_por_cliente = cargas_por_cliente.rename(columns={
+                                col_cliente: 'Cliente',
+                                col_obra: 'Obra',
+                                col_veiculo: 'Tipo de Veículo'
+                            })
+                            
                             st.dataframe(cargas_por_cliente, hide_index=True, use_container_width=True)
                             
-                        # Análise de Estacas a Produzir/Carregar
+                        # --- NOVO: Total de Estacas a Produzir detalhado ---
                         with col_graf2:
                             st.markdown("**🏗️ Total de Estacas a Produzir/Carregar**")
                             if not df_itens.empty:
                                 col_id_pedido_ped = df_pedidos.columns[0]
                                 col_id_pedido_item = df_itens.columns[1]
                                 col_modelo = df_itens.columns[2]
+                                col_comprimento = df_itens.columns[3]
                                 col_quantidade = df_itens.columns[4]
+                                col_metragem = df_itens.columns[5] 
                                 
-                                # Isola apenas os IDs dos pedidos que passaram no filtro de data
                                 ids_filtrados = df_pedidos_filtrado[col_id_pedido_ped].tolist()
                                 itens_filtrados = df_itens[df_itens[col_id_pedido_item].isin(ids_filtrados)].copy()
                                 
                                 if not itens_filtrados.empty:
-                                    # Converte a coluna de quantidade de texto para número para poder somar
                                     itens_filtrados[col_quantidade] = pd.to_numeric(itens_filtrados[col_quantidade], errors='coerce').fillna(0)
-                                    estacas_por_modelo = itens_filtrados.groupby(col_modelo)[col_quantidade].sum().reset_index(name='Quantidade (Unid.)')
+                                    itens_filtrados[col_metragem] = pd.to_numeric(itens_filtrados[col_metragem], errors='coerce').fillna(0)
+                                    
+                                    # Agrupa separando Modelo e Comprimento, e soma as quantidades
+                                    estacas_por_modelo = itens_filtrados.groupby([col_modelo, col_comprimento]).agg({
+                                        col_quantidade: 'sum',
+                                        col_metragem: 'sum'
+                                    }).reset_index()
+                                    
+                                    estacas_por_modelo = estacas_por_modelo.rename(columns={
+                                        col_modelo: 'Estaca',
+                                        col_comprimento: 'Comprimento (m)',
+                                        col_quantidade: 'Quantidade (Unid.)',
+                                        col_metragem: 'Metragem Total'
+                                    })
                                     
                                     st.dataframe(estacas_por_modelo, hide_index=True, use_container_width=True)
                                 else:
                                     st.info("Nenhum item associado a estes pedidos.")
                     else:
-                        st.info("Nenhum pedido encontrado para a data selecionada.")
+                        st.warning("⚠️ Nenhum pedido encontrado para a data selecionada.")
 
-                # --- ABA 2: GESTÃO E STATUS (O QUE JÁ TÍNHAMOS) ---
+                # --- ABA 2: GESTÃO E STATUS ---
                 with tab_gestao:
                     df_pedidos_inverso = df_pedidos.iloc[::-1]
                     st.dataframe(df_pedidos_inverso, use_container_width=True, hide_index=True)
