@@ -2,7 +2,7 @@ import streamlit as st
 import gspread
 from google.oauth2.service_account import Credentials
 import uuid
-from datetime import datetime
+from datetime import datetime, timedelta  # <-- Adicionámos o timedelta aqui
 import pandas as pd
 from fpdf import FPDF
 import json
@@ -11,7 +11,6 @@ import json
 st.set_page_config(page_title="Pedido de Estacas", page_icon="📦")
 
 # --- 0. TELA DE LOGIN (SEGURANÇA) ---
-# Altere a senha abaixo para a que você deseja fornecer aos clientes
 SENHA_CORRETA = "FOA2026"
 
 if 'autenticado' not in st.session_state:
@@ -31,11 +30,11 @@ if not st.session_state['autenticado']:
     if st.button("Entrar", type="primary"):
         if senha_digitada == SENHA_CORRETA:
             st.session_state['autenticado'] = True
-            st.rerun() # Atualiza a página para liberar o formulário
+            st.rerun() 
         else:
             st.error("❌ Senha incorreta. Verifique com a equipe comercial.")
             
-    st.stop() # ⚠️ MAGIA AQUI: Se não estiver autenticado, o código para de ler aqui e esconde o resto!
+    st.stop() 
 
 # ==========================================
 # SE O CLIENTE ACERTOU A SENHA, O CÓDIGO CONTINUA ABAIXO:
@@ -154,7 +153,6 @@ if 'pdf_pronto' in st.session_state:
     st.stop() 
 
 # --- 3. O VISUAL DO FORMULÁRIO PRINCIPAL ---
-
 st.title("📦 Solicitação de Estacas")
 
 st.subheader("1. Logística e Transporte")
@@ -177,7 +175,19 @@ with col_a1:
 
 with col_a2:
     obra_local = st.text_input("Obra / Local de Entrega *")
-    data_desejada = st.date_input("Data Desejada para Entrega", format="DD/MM/YYYY")
+    
+    # --- REGRA DE NEGÓCIO: BLOQUEIO DE 48 HORAS ---
+    # Calcula qual é o dia de hoje + 2 dias
+    data_minima = datetime.now().date() + timedelta(days=2)
+    
+    # O calendário agora já abre na data mínima permitida e bloqueia o passado
+    data_desejada = st.date_input(
+        "Data Desejada para Entrega *", 
+        min_value=data_minima,     # Impede selecionar datas antes do prazo
+        value=data_minima,         # Já deixa o prazo mínimo pré-selecionado
+        format="DD/MM/YYYY",
+        help="O prazo mínimo para solicitação é de 48 horas de antecedência."
+    )
 
 observacoes = st.text_area("Observações Gerais (Opcional)")
 
