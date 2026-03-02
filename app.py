@@ -2,19 +2,21 @@ import streamlit as st
 import gspread
 from google.oauth2.service_account import Credentials
 import uuid
-from datetime import datetime, timedelta  # <-- Adicionámos o timedelta aqui
+from datetime import datetime, timedelta
 import pandas as pd
 from fpdf import FPDF
 import json
 
 # --- CONFIGURAÇÃO DA PÁGINA ---
-st.set_page_config(page_title="Pedido de Estacas", page_icon="📦")
+st.set_page_config(page_title="Sistema de Logística", page_icon="📦", layout="wide") # Mudei para layout wide para a tabela do admin caber melhor
 
-# --- 0. TELA DE LOGIN (SEGURANÇA) ---
-SENHA_CORRETA = "FOA2026"
+# --- 0. TELA DE LOGIN (SEGURANÇA E PERFIS) ---
+SENHA_CLIENTE = "FOA2026"
+SENHA_ADMIN = "ADMIN2026" # ⚠️ A sua senha de Administrador
 
 if 'autenticado' not in st.session_state:
     st.session_state['autenticado'] = False
+    st.session_state['perfil'] = ""
 
 if not st.session_state['autenticado']:
     try:
@@ -22,77 +24,24 @@ if not st.session_state['autenticado']:
     except:
         pass
     
-    st.title("🔒 Acesso Restrito")
-    st.markdown("Bem-vindo ao sistema de logística. Insira a senha de acesso para realizar o seu pedido.")
+    st.title("🔒 Acesso ao Sistema")
+    st.markdown("Insira a sua senha de acesso.")
     
-    senha_digitada = st.text_input("Senha de Acesso", type="password")
+    senha_digitada = st.text_input("Senha", type="password")
     
     if st.button("Entrar", type="primary"):
-        if senha_digitada == SENHA_CORRETA:
+        if senha_digitada == SENHA_CLIENTE:
             st.session_state['autenticado'] = True
+            st.session_state['perfil'] = "cliente"
             st.rerun() 
+        elif senha_digitada == SENHA_ADMIN:
+            st.session_state['autenticado'] = True
+            st.session_state['perfil'] = "admin"
+            st.rerun()
         else:
-            st.error("❌ Senha incorreta. Verifique com a equipe comercial.")
+            st.error("❌ Senha incorreta.")
             
     st.stop() 
-
-# ==========================================
-# SE O CLIENTE ACERTOU A SENHA, O CÓDIGO CONTINUA ABAIXO:
-# ==========================================
-
-# --- TABELA DE PESOS DAS ESTACAS ---
-PESO_POR_METRO = {
-    "17x17": 70,
-    "ICP360": 130,
-    "ETR229": 66,
-    "ETR269": 90,
-    "ETR360": 137, 
-    "ETR406": 159,
-    "ETR445": 201,
-    "ETR525": 250,
-    "ETR605": 325,
-    "ETR707": 400,
-    "ETR809": 530
-}
-PESO_PADRAO = 100 
-
-# --- FUNÇÃO PARA GERAR O PDF ---
-def gerar_recibo_pdf(id_pedido, data, solicitante, cliente, obra, data_desejada, veiculo, obs, carrinho):
-    pdf = FPDF()
-    pdf.add_page()
-    
-    pdf.set_font("helvetica", "B", 16)
-    pdf.cell(0, 10, "Comprovante de Pedido - Estacas", ln=True, align="C")
-    pdf.ln(5)
-    
-    pdf.set_font("helvetica", "B", 12)
-    pdf.cell(0, 8, f"ID do Pedido: {id_pedido}", ln=True)
-    
-    pdf.set_font("helvetica", "", 12)
-    pdf.cell(0, 8, f"Data da Solicitacao: {data}", ln=True)
-    pdf.cell(0, 8, f"Solicitante: {solicitante}", ln=True)
-    pdf.cell(0, 8, f"Cliente/Empresa: {cliente}", ln=True)
-    pdf.cell(0, 8, f"Obra/Local: {obra}", ln=True)
-    pdf.cell(0, 8, f"Data Desejada: {data_desejada}", ln=True)
-    pdf.cell(0, 8, f"Veiculo Selecionado: {veiculo}", ln=True)
-    if obs:
-        pdf.cell(0, 8, f"Observacoes: {obs}", ln=True)
-    pdf.ln(5)
-    
-    pdf.set_font("helvetica", "B", 12)
-    pdf.cell(0, 10, "Itens Solicitados:", ln=True)
-    
-    pdf.set_font("helvetica", "", 12)
-    for item in carrinho:
-        texto_item = f"- {item['Quantidade']}x modelo {item['Modelo']} ({item['Comprimento']}m) | Metragem: {item['Metragem Total']}m | Peso: {item['Peso (kg)']:,.0f} kg"
-        pdf.cell(0, 8, texto_item, ln=True)
-        
-    pdf.ln(5) 
-    pdf.set_font("helvetica", "B", 12) 
-    peso_total = sum(item['Peso (kg)'] for item in carrinho)
-    pdf.cell(0, 10, f"Peso total da carga: {peso_total:,.0f} kg.", ln=True)
-    
-    return bytes(pdf.output())
 
 # --- 1. CONFIGURAÇÃO E MEMÓRIA (CACHE) ---
 escopos = [
@@ -122,7 +71,6 @@ try:
     aba_itens = planilha.worksheet("Itens_Pedido")
     
     lista_modelos, lista_comprimentos = buscar_cadastros()
-    
     if not lista_modelos: lista_modelos = ["Sem modelos"]
     if not lista_comprimentos: lista_comprimentos = ["0"]
 
@@ -130,21 +78,100 @@ except Exception as e:
     st.error(f"Erro ao conectar com o Google Sheets: {e}")
     st.stop()
 
-# --- 2. MEMÓRIA DO APP (CARRINHO) ---
+
+# ==========================================
+# ÁREA DO ADMINISTRADOR
+# ==========================================
+if st.session_state['perfil'] == "admin":
+    st.title("⚙️ Painel do Administrador")
+    st.markdown("Visão geral de todos os pedidos solicitados.")
+    
+    # Botão para atualizar e sair
+    col_btn1, col_btn2 = st.columns([1, 10])
+    with col_btn1:
+        if st.button("🔄 Atualizar Dados"):
+            st.rerun()
+    with col_btn2:
+        if st.button("Sair / Logout"):
+            st.session_state['autenticado'] = False
+            st.session_state['perfil'] = ""
+            st.rerun()
+
+    st.divider()
+    
+    with st.spinner("A carregar pedidos do banco de dados..."):
+        try:
+            # Puxa todos os dados da aba Pedidos
+            dados_pedidos = aba_pedidos.get_all_records()
+            
+            if dados_pedidos:
+                df_pedidos = pd.DataFrame(dados_pedidos)
+                
+                # Inverte a ordem para mostrar os pedidos mais novos no topo
+                df_pedidos = df_pedidos.iloc[::-1]
+                
+                # Exibe a tabela interativa na tela
+                st.dataframe(df_pedidos, use_container_width=True, hide_index=True)
+                
+                st.info(f"Total de pedidos registrados: {len(df_pedidos)}")
+            else:
+                st.warning("Ainda não há nenhum pedido registrado na planilha.")
+                
+        except Exception as e:
+            st.error(f"Erro ao carregar os dados: {e}")
+            
+    st.stop() # ⚠️ MAGIA: Faz o código parar aqui para o Admin não ver o formulário do cliente abaixo.
+
+
+# ==========================================
+# ÁREA DO CLIENTE (FORMULÁRIO DE PEDIDOS)
+# ==========================================
+
+# --- TABELA DE PESOS DAS ESTACAS ---
+PESO_POR_METRO = {
+    "17x17": 70, "ICP360": 130, "ETR229": 66, "ETR269": 90, "ETR360": 137, 
+    "ETR406": 159, "ETR445": 201, "ETR525": 250, "ETR605": 325, "ETR707": 400, "ETR809": 530
+}
+PESO_PADRAO = 100 
+
+def gerar_recibo_pdf(id_pedido, data, solicitante, cliente, obra, data_desejada, veiculo, obs, carrinho):
+    pdf = FPDF()
+    pdf.add_page()
+    pdf.set_font("helvetica", "B", 16)
+    pdf.cell(0, 10, "Comprovante de Pedido - Estacas", ln=True, align="C")
+    pdf.ln(5)
+    pdf.set_font("helvetica", "B", 12)
+    pdf.cell(0, 8, f"ID do Pedido: {id_pedido}", ln=True)
+    pdf.set_font("helvetica", "", 12)
+    pdf.cell(0, 8, f"Data da Solicitacao: {data}", ln=True)
+    pdf.cell(0, 8, f"Solicitante: {solicitante}", ln=True)
+    pdf.cell(0, 8, f"Cliente/Empresa: {cliente}", ln=True)
+    pdf.cell(0, 8, f"Obra/Local: {obra}", ln=True)
+    pdf.cell(0, 8, f"Data Desejada: {data_desejada}", ln=True)
+    pdf.cell(0, 8, f"Veiculo Selecionado: {veiculo}", ln=True)
+    if obs:
+        pdf.cell(0, 8, f"Observacoes: {obs}", ln=True)
+    pdf.ln(5)
+    pdf.set_font("helvetica", "B", 12)
+    pdf.cell(0, 10, "Itens Solicitados:", ln=True)
+    pdf.set_font("helvetica", "", 12)
+    for item in carrinho:
+        texto_item = f"- {item['Quantidade']}x modelo {item['Modelo']} ({item['Comprimento']}m) | Metragem: {item['Metragem Total']}m | Peso: {item['Peso (kg)']:,.0f} kg"
+        pdf.cell(0, 8, texto_item, ln=True)
+    pdf.ln(5) 
+    pdf.set_font("helvetica", "B", 12) 
+    peso_total = sum(item['Peso (kg)'] for item in carrinho)
+    pdf.cell(0, 10, f"Peso total da carga: {peso_total:,.0f} kg.", ln=True)
+    return bytes(pdf.output())
+
+# --- MEMÓRIA DO APP (CARRINHO) ---
 if 'carrinho' not in st.session_state:
     st.session_state['carrinho'] = []
 
-# --- TELA DE SUCESSO E DOWNLOAD ---
 if 'pdf_pronto' in st.session_state:
     st.title("✅ Pedido Concluído!")
     st.success("Seu pedido foi recebido com sucesso pela nossa equipe de logística.")
-    st.download_button(
-        label="📄 Baixar Comprovante em PDF",
-        data=st.session_state['pdf_pronto'],
-        file_name=f"Pedido_{st.session_state['id_pedido']}.pdf",
-        mime="application/pdf",
-        type="primary"
-    )
+    st.download_button("📄 Baixar Comprovante em PDF", data=st.session_state['pdf_pronto'], file_name=f"Pedido_{st.session_state['id_pedido']}.pdf", mime="application/pdf", type="primary")
     st.divider()
     if st.button("🔄 Fazer Novo Pedido"):
         del st.session_state['pdf_pronto']
@@ -152,42 +179,37 @@ if 'pdf_pronto' in st.session_state:
         st.rerun()
     st.stop() 
 
-# --- 3. O VISUAL DO FORMULÁRIO PRINCIPAL ---
+# --- VISUAL DO FORMULÁRIO PRINCIPAL ---
+try:
+    st.image("logo.png", width=200)
+except:
+    pass
+
+# Botão de sair para o cliente também
+col_sair1, col_sair2 = st.columns([10, 2])
+with col_sair2:
+    if st.button("Sair"):
+        st.session_state['autenticado'] = False
+        st.session_state['perfil'] = ""
+        st.rerun()
+
 st.title("📦 Solicitação de Estacas")
 
 st.subheader("1. Logística e Transporte")
-tipo_veiculo = st.radio(
-    "Escolha o tipo de transporte desejado:",
-    ["Carreta Munk (Capacidade: 23.500 kg)", "Prancha (Capacidade: 26.000 kg)"],
-    horizontal=True
-)
-
+tipo_veiculo = st.radio("Escolha o tipo de transporte desejado:", ["Carreta Munk (Capacidade: 23.500 kg)", "Prancha (Capacidade: 26.000 kg)"], horizontal=True)
 capacidade_maxima = 23500 if "Munk" in tipo_veiculo else 26000
 
 st.divider()
 
 st.subheader("2. Dados do Cliente e Entrega")
 col_a1, col_a2 = st.columns(2)
-
 with col_a1:
     solicitante = st.text_input("Nome do Solicitante *")
     cliente_empresa = st.text_input("Cliente / Empresa *")
-
 with col_a2:
     obra_local = st.text_input("Obra / Local de Entrega *")
-    
-    # --- REGRA DE NEGÓCIO: BLOQUEIO DE 48 HORAS ---
-    # Calcula qual é o dia de hoje + 2 dias
     data_minima = datetime.now().date() + timedelta(days=2)
-    
-    # O calendário agora já abre na data mínima permitida e bloqueia o passado
-    data_desejada = st.date_input(
-        "Data Desejada para Entrega *", 
-        min_value=data_minima,     # Impede selecionar datas antes do prazo
-        value=data_minima,         # Já deixa o prazo mínimo pré-selecionado
-        format="DD/MM/YYYY",
-        help="O prazo mínimo para solicitação é de 48 horas de antecedência."
-    )
+    data_desejada = st.date_input("Data Desejada para Entrega *", min_value=data_minima, value=data_minima, format="DD/MM/YYYY", help="Prazo mínimo de 48h.")
 
 observacoes = st.text_area("Observações Gerais (Opcional)")
 
@@ -195,7 +217,6 @@ st.divider()
 
 st.subheader("3. Adicionar Estacas ao Pedido")
 col_b1, col_b2, col_b3 = st.columns(3)
-
 with col_b1:
     modelo = st.selectbox("Modelo da Estaca", lista_modelos)
 with col_b2:
@@ -207,26 +228,16 @@ if st.button("➕ Adicionar ao Pedido"):
     metragem_total = quantidade * int(comprimento)
     peso_linear = PESO_POR_METRO.get(modelo, PESO_PADRAO)
     peso_total_item = metragem_total * peso_linear
-    
-    st.session_state['carrinho'].append({
-        "Modelo": modelo,
-        "Comprimento": comprimento,
-        "Quantidade": quantidade,
-        "Metragem Total": metragem_total,
-        "Peso (kg)": peso_total_item
-    })
+    st.session_state['carrinho'].append({"Modelo": modelo, "Comprimento": comprimento, "Quantidade": quantidade, "Metragem Total": metragem_total, "Peso (kg)": peso_total_item})
     st.success(f"{quantidade}x {modelo} adicionado(s)! Peso estimado: {peso_total_item:,.0f} kg")
 
 st.divider()
 
-# --- 4. RESUMO DA CARGA ---
 st.subheader("4. Resumo da Carga")
-
 peso_total_carrinho = sum(item['Peso (kg)'] for item in st.session_state['carrinho'])
 
 if len(st.session_state['carrinho']) > 0:
     col_c1, col_c2 = st.columns([2, 1])
-    
     with col_c1:
         st.write("**Itens no pedido:**")
         for i, item in enumerate(st.session_state['carrinho']):
@@ -240,13 +251,7 @@ if len(st.session_state['carrinho']) > 0:
         
     with col_c2:
         veiculo_nome = "Munk" if "Munk" in tipo_veiculo else "Prancha"
-        st.metric(
-            label=f"Peso no Veículo ({veiculo_nome})", 
-            value=f"{peso_total_carrinho:,.0f} kg", 
-            delta=f"Capacidade: {capacidade_maxima:,.0f} kg",
-            delta_color="off"
-        )
-        
+        st.metric(label=f"Peso no Veículo ({veiculo_nome})", value=f"{peso_total_carrinho:,.0f} kg", delta=f"Capacidade: {capacidade_maxima:,.0f} kg", delta_color="off")
         percentual_carga = min(peso_total_carrinho / capacidade_maxima, 1.0)
         
         if peso_total_carrinho > capacidade_maxima:
