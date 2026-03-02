@@ -11,8 +11,8 @@ import json
 st.set_page_config(page_title="Sistema de Logística", page_icon="📦", layout="wide") # Mudei para layout wide para a tabela do admin caber melhor
 
 # --- 0. TELA DE LOGIN (SEGURANÇA E PERFIS) ---
-SENHA_CLIENTE = "FOA2026"
-SENHA_ADMIN = "ADMIN2026" # ⚠️ A sua senha de Administrador
+SENHA_CLIENTE = st.secrets["senha_cliente"]
+SENHA_ADMIN = st.secrets["senha_admin"]
 
 if 'autenticado' not in st.session_state:
     st.session_state['autenticado'] = False
