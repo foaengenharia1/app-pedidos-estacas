@@ -110,7 +110,7 @@ if st.session_state['perfil'] == "admin":
                 
                 # --- ABA 1: VISÃO ESTRATÉGICA (DASHBOARD ATUALIZADO) ---
                 with tab_visao:
-                    st.subheader("Planejamento de Cargas e Produção")
+                    st.subheader("Planejamento de Carregamento")
                     
                     # 1. Filtro de Data com Calendário
                     col_data_desejada = df_pedidos.columns[5] # Coluna 'Data Desejada'
@@ -118,7 +118,7 @@ if st.session_state['perfil'] == "admin":
                     usar_filtro = st.toggle("Filtrar por uma data específica", value=True)
                     
                     if usar_filtro:
-                        data_selecionada = st.date_input("📅 Selecione a Data para planejar o carregamento:", format="DD/MM/YYYY")
+                        data_selecionada = st.date_input("📅 Selecione a Data para o carregamento:", format="DD/MM/YYYY")
                         # Converte a data selecionada para o texto exato do Excel
                         data_str = data_selecionada.strftime("%d/%m/%Y")
                         df_pedidos_filtrado = df_pedidos[df_pedidos[col_data_desejada] == data_str]
@@ -157,7 +157,7 @@ if st.session_state['perfil'] == "admin":
                             
                         # --- NOVO: Total de Estacas a Produzir detalhado ---
                         with col_graf2:
-                            st.markdown("**🏗️ Total de Estacas a Produzir/Carregar**")
+                            st.markdown("**Total de Estacas a Carregar**")
                             if not df_itens.empty:
                                 col_id_pedido_ped = df_pedidos.columns[0]
                                 col_id_pedido_item = df_itens.columns[1]
