@@ -84,7 +84,6 @@ except Exception as e:
 # ==========================================
 if st.session_state['perfil'] == "admin":
     st.title("⚙️ Painel do Administrador")
-    st.markdown("Visão geral e gestão de pedidos.")
     
     col_btn1, col_btn2 = st.columns([1, 10])
     with col_btn1:
@@ -98,53 +97,116 @@ if st.session_state['perfil'] == "admin":
 
     st.divider()
     
-    with st.spinner("A carregar pedidos do banco de dados..."):
+    with st.spinner("A carregar e processar dados do banco..."):
         try:
+            # Puxamos as DUAS abas agora para poder cruzar as informações
             dados_pedidos = aba_pedidos.get_all_values()
+            dados_itens = aba_itens.get_all_values()
             
             if len(dados_pedidos) > 1:
                 df_pedidos = pd.DataFrame(dados_pedidos[1:], columns=dados_pedidos[0])
-                df_pedidos_inverso = df_pedidos.iloc[::-1] # Mostra os mais recentes primeiro
+                # Carrega os itens apenas se existirem
+                df_itens = pd.DataFrame(dados_itens[1:], columns=dados_itens[0]) if len(dados_itens) > 1 else pd.DataFrame()
                 
-                st.dataframe(df_pedidos_inverso, use_container_width=True, hide_index=True)
-                st.info(f"Total de pedidos registados: {len(df_pedidos)}")
+                # --- CRIAÇÃO DAS ABAS (TABS) ---
+                tab_visao, tab_gestao = st.tabs(["📊 Visão Estratégica", "📋 Gestão e Status"])
                 
-                st.divider()
-                
-                # --- NOVA SECÇÃO: ATUALIZAR STATUS ---
-                st.subheader("Mudar Status do Pedido")
-                
-                # Extrai apenas os IDs (primeira coluna) que não estejam vazios
-                lista_ids = [str(id) for id in df_pedidos[df_pedidos.columns[0]].tolist() if str(id).strip() != ""]
-                
-                col_s1, col_s2, col_s3 = st.columns(3)
-                
-                with col_s1:
-                    pedido_selecionado = st.selectbox("Selecione o ID do Pedido", [""] + lista_ids)
-                
-                with col_s2:
-                    # Pode adicionar os status que fizerem sentido para o seu negócio
-                    novo_status = st.selectbox("Novo Status", ["Pendente","Entregue", "Cancelado"])
-                
-                with col_s3:
-                    st.write("") # Espaçamento para alinhar o botão com as caixas
-                    st.write("") 
-                    if st.button("Atualizar Status", type="primary"):
-                        if pedido_selecionado == "":
-                            st.warning("⚠️ Selecione um ID de Pedido primeiro.")
-                        else:
-                            with st.spinner("A atualizar no Google Sheets..."):
-                                # 1. Procura em que célula (linha/coluna) está este ID
-                                celula_id = aba_pedidos.find(pedido_selecionado)
+                # --- ABA 1: VISÃO ESTRATÉGICA (O SEU NOVO DASHBOARD) ---
+                with tab_visao:
+                    st.subheader("Planejamento de Cargas e Produção")
+                    
+                    # 1. Filtro de Data
+                    col_data_desejada = df_pedidos.columns[5] # Coluna 'Data Desejada'
+                    datas_unicas = sorted(df_pedidos[col_data_desejada].unique())
+                    
+                    filtro_data = st.selectbox(
+                        "📅 Selecione a Data para planejar o carregamento:", 
+                        ["Todas as Datas"] + datas_unicas
+                    )
+                    
+                    # Aplica o filtro
+                    if filtro_data != "Todas as Datas":
+                        df_pedidos_filtrado = df_pedidos[df_pedidos[col_data_desejada] == filtro_data]
+                    else:
+                        df_pedidos_filtrado = df_pedidos
+                        
+                    st.write("") # Espaço
+                    
+                    if not df_pedidos_filtrado.empty:
+                        # Métricas principais
+                        col_m1, col_m2 = st.columns(2)
+                        col_m1.metric("Total de Pedidos (Cargas)", len(df_pedidos_filtrado))
+                        col_m2.metric("Data Analisada", filtro_data)
+                        
+                        st.divider()
+                        
+                        col_graf1, col_graf2 = st.columns(2)
+                        
+                        # Análise de Carretas por Cliente
+                        with col_graf1:
+                            st.markdown("**🚚 Previsão de Veículos por Cliente**")
+                            col_cliente = df_pedidos.columns[3] # Coluna 'Cliente'
+                            cargas_por_cliente = df_pedidos_filtrado.groupby(col_cliente).size().reset_index(name='Quantidade de Veículos')
+                            st.dataframe(cargas_por_cliente, hide_index=True, use_container_width=True)
+                            
+                        # Análise de Estacas a Produzir/Carregar
+                        with col_graf2:
+                            st.markdown("**🏗️ Total de Estacas a Produzir/Carregar**")
+                            if not df_itens.empty:
+                                col_id_pedido_ped = df_pedidos.columns[0]
+                                col_id_pedido_item = df_itens.columns[1]
+                                col_modelo = df_itens.columns[2]
+                                col_quantidade = df_itens.columns[4]
                                 
-                                if celula_id:
-                                    # 2. Atualiza a coluna 9 (Status) da mesma linha
-                                    aba_pedidos.update_cell(celula_id.row, 9, novo_status)
-                                    st.success(f"✅ Pedido {pedido_selecionado} alterado para: {novo_status}")
-                                    st.rerun() # Recarrega a página para a tabela mostrar a alteração
-                                else:
-                                    st.error("❌ ID não encontrado na folha de cálculo.")
+                                # Isola apenas os IDs dos pedidos que passaram no filtro de data
+                                ids_filtrados = df_pedidos_filtrado[col_id_pedido_ped].tolist()
+                                itens_filtrados = df_itens[df_itens[col_id_pedido_item].isin(ids_filtrados)].copy()
+                                
+                                if not itens_filtrados.empty:
+                                    # Converte a coluna de quantidade de texto para número para poder somar
+                                    itens_filtrados[col_quantidade] = pd.to_numeric(itens_filtrados[col_quantidade], errors='coerce').fillna(0)
+                                    estacas_por_modelo = itens_filtrados.groupby(col_modelo)[col_quantidade].sum().reset_index(name='Quantidade (Unid.)')
                                     
+                                    st.dataframe(estacas_por_modelo, hide_index=True, use_container_width=True)
+                                else:
+                                    st.info("Nenhum item associado a estes pedidos.")
+                    else:
+                        st.info("Nenhum pedido encontrado para a data selecionada.")
+
+                # --- ABA 2: GESTÃO E STATUS (O QUE JÁ TÍNHAMOS) ---
+                with tab_gestao:
+                    df_pedidos_inverso = df_pedidos.iloc[::-1]
+                    st.dataframe(df_pedidos_inverso, use_container_width=True, hide_index=True)
+                    
+                    st.divider()
+                    st.subheader("Mudar Status do Pedido")
+                    
+                    lista_ids = [str(id) for id in df_pedidos[df_pedidos.columns[0]].tolist() if str(id).strip() != ""]
+                    
+                    col_s1, col_s2, col_s3 = st.columns(3)
+                    
+                    with col_s1:
+                        pedido_selecionado = st.selectbox("Selecione o ID do Pedido", [""] + lista_ids)
+                    
+                    with col_s2:
+                        novo_status = st.selectbox("Novo Status", ["Pendente", "Em Produção", "Em Transporte", "Entregue", "Cancelado"])
+                    
+                    with col_s3:
+                        st.write("") 
+                        st.write("") 
+                        if st.button("Atualizar Status", type="primary"):
+                            if pedido_selecionado == "":
+                                st.warning("⚠️ Selecione um ID de Pedido primeiro.")
+                            else:
+                                with st.spinner("A atualizar no Google Sheets..."):
+                                    celula_id = aba_pedidos.find(pedido_selecionado)
+                                    if celula_id:
+                                        aba_pedidos.update_cell(celula_id.row, 9, novo_status)
+                                        st.success(f"✅ Pedido {pedido_selecionado} alterado para: {novo_status}")
+                                        st.rerun() 
+                                    else:
+                                        st.error("❌ ID não encontrado na folha de cálculo.")
+                                        
             else:
                 st.warning("Ainda não há nenhum pedido registado na folha de cálculo.")
                 
@@ -207,6 +269,10 @@ if 'pdf_pronto' in st.session_state:
         st.rerun()
     st.stop() 
 
+try:
+    st.image("logo.png", width=200)
+except:
+    pass
 
 col_sair1, col_sair2 = st.columns([10, 2])
 with col_sair2:
