@@ -2,7 +2,7 @@ import streamlit as st
 import gspread
 from google.oauth2.service_account import Credentials
 import uuid
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 import pandas as pd
 from fpdf import FPDF
 import json
@@ -375,7 +375,11 @@ if len(st.session_state['carrinho']) > 0:
         else:
             with st.spinner("A enviar pedido e a gerar PDF..."):
                 id_pedido = str(uuid.uuid4())[:8].upper()
-                data_atual = datetime.now().strftime("%d/%m/%Y %H:%M")
+                
+                # Aplica o Fuso Horário de Brasília (UTC-3)
+                fuso_br = timezone(timedelta(hours=-3))
+                data_atual = datetime.now(fuso_br).strftime("%d/%m/%Y %H:%M")
+                
                 data_desejada_str = data_desejada.strftime("%d/%m/%Y")
                 
                 try:
