@@ -146,7 +146,7 @@ if st.session_state['perfil'] == "admin":
                             st.dataframe(cargas_por_cliente, hide_index=True, use_container_width=True)
                             
                         with col_graf2:
-                            st.markdown("**🏗️ Total de Estacas a Produzir/Carregar**")
+                            st.markdown("**🏗️ Total de Estacas a Carregar**")
                             if not df_itens.empty:
                                 col_id_pedido_ped = df_pedidos.columns[0]
                                 col_id_pedido_item = df_itens.columns[1]
@@ -207,7 +207,7 @@ if st.session_state['perfil'] == "admin":
                         
                         with col_s1:
                             status_atual = info_pedido[df_pedidos.columns[8]]
-                            opcoes_status = ["Pendente", "Em Produção", "Em Transporte", "Entregue", "Cancelado"]
+                            opcoes_status = ["Pendente", "Entregue", "Cancelado"]
                             # Já deixa selecionado o status que está na planilha hoje
                             index_atual = opcoes_status.index(status_atual) if status_atual in opcoes_status else 0
                             novo_status = st.selectbox("Novo Status", opcoes_status, index=index_atual)
