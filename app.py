@@ -168,7 +168,7 @@ if st.session_state['perfil'] == "admin":
                             col_s1, col_s2 = st.columns([2, 2])
                             with col_s1:
                                 status_atual = info_pedido[df_pedidos.columns[8]]
-                                opcoes_status = ["Pendente", "Em Produção", "Em Transporte", "Entregue", "Cancelado"]
+                                opcoes_status = ["Pendente", "Entregue", "Cancelado"]
                                 index_atual = opcoes_status.index(status_atual) if status_atual in opcoes_status else 0
                                 novo_status = st.selectbox("Novo Status", opcoes_status, index=index_atual)
                             
@@ -336,11 +336,6 @@ if 'pdf_pronto' in st.session_state:
         st.rerun()
     st.stop() 
 
-try:
-    st.image("logo.png", width=200)
-except:
-    pass
-
 col_sair1, col_sair2 = st.columns([10, 2])
 with col_sair2:
     if st.button("Sair"):
@@ -375,9 +370,9 @@ col_b1, col_b2, col_b3 = st.columns(3)
 with col_b1:
     modelo = st.selectbox("Modelo da Estaca", lista_modelos)
 with col_b2:
-    comprimento = st.selectbox("Comprimento (Metros)", lista_comprimentos)
+    comprimento = st.selectbox("Comprimento(m)", lista_comprimentos)
 with col_b3:
-    quantidade = st.number_input("Quantidade", min_value=1, step=1)
+    quantidade = st.number_input("Quantidade(unid.)", min_value=1, step=1)
 
 if st.button("➕ Adicionar ao Pedido"):
     metragem_total = quantidade * int(comprimento)
