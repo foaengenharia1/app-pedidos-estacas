@@ -288,11 +288,6 @@ if 'pdf_pronto' in st.session_state:
         st.rerun()
     st.stop() 
 
-try:
-    st.image("logo.png", width=200)
-except:
-    pass
-
 col_sair1, col_sair2 = st.columns([10, 2])
 with col_sair2:
     if st.button("Sair"):
