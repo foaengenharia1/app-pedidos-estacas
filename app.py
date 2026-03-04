@@ -2,7 +2,7 @@ import streamlit as st
 import gspread
 from google.oauth2.service_account import Credentials
 import uuid
-from datetime import datetime, timedelta, timezone
+from datetime import datetime, timedelta, timezone # <-- Fuso horário adicionado aqui!
 import pandas as pd
 from fpdf import FPDF
 import json
@@ -108,18 +108,15 @@ if st.session_state['perfil'] == "admin":
                 
                 tab_visao, tab_gestao = st.tabs(["📊 Visão Estratégica", "📋 Gestão e Status"])
                 
-                # --- ABA 1: VISÃO ESTRATÉGICA (DASHBOARD ATUALIZADO) ---
+                # --- ABA 1: VISÃO ESTRATÉGICA ---
                 with tab_visao:
-                    st.subheader("Planejamento de Carregamento")
+                    st.subheader("Planejamento de Cargas e Produção")
                     
-                    # 1. Filtro de Data com Calendário
-                    col_data_desejada = df_pedidos.columns[5] # Coluna 'Data Desejada'
-                    
+                    col_data_desejada = df_pedidos.columns[5]
                     usar_filtro = st.toggle("Filtrar por uma data específica", value=True)
                     
                     if usar_filtro:
-                        data_selecionada = st.date_input("📅 Selecione a Data para o carregamento:", format="DD/MM/YYYY")
-                        # Converte a data selecionada para o texto exato do Excel
+                        data_selecionada = st.date_input("📅 Selecione a Data para planejar o carregamento:", format="DD/MM/YYYY")
                         data_str = data_selecionada.strftime("%d/%m/%Y")
                         df_pedidos_filtrado = df_pedidos[df_pedidos[col_data_desejada] == data_str]
                         data_exibicao = data_str
@@ -138,7 +135,6 @@ if st.session_state['perfil'] == "admin":
                         
                         col_graf1, col_graf2 = st.columns(2)
                         
-                        # --- NOVO: Análise de Carretas por Cliente, Obra e Veículo ---
                         with col_graf1:
                             st.markdown("**🚚 Previsão de Veículos por Cliente**")
                             col_cliente = df_pedidos.columns[3]
@@ -146,18 +142,11 @@ if st.session_state['perfil'] == "admin":
                             col_veiculo = df_pedidos.columns[6]
                             
                             cargas_por_cliente = df_pedidos_filtrado.groupby([col_cliente, col_obra, col_veiculo]).size().reset_index(name='Quantidade de Veículos')
-                            
-                            cargas_por_cliente = cargas_por_cliente.rename(columns={
-                                col_cliente: 'Cliente',
-                                col_obra: 'Obra',
-                                col_veiculo: 'Tipo de Veículo'
-                            })
-                            
+                            cargas_por_cliente = cargas_por_cliente.rename(columns={col_cliente: 'Cliente', col_obra: 'Obra', col_veiculo: 'Tipo de Veículo'})
                             st.dataframe(cargas_por_cliente, hide_index=True, use_container_width=True)
                             
-                        # --- NOVO: Total de Estacas a Produzir detalhado ---
                         with col_graf2:
-                            st.markdown("**Total de Estacas a Carregar**")
+                            st.markdown("**🏗️ Total de Estacas a Produzir/Carregar**")
                             if not df_itens.empty:
                                 col_id_pedido_ped = df_pedidos.columns[0]
                                 col_id_pedido_item = df_itens.columns[1]
@@ -173,50 +162,60 @@ if st.session_state['perfil'] == "admin":
                                     itens_filtrados[col_quantidade] = pd.to_numeric(itens_filtrados[col_quantidade], errors='coerce').fillna(0)
                                     itens_filtrados[col_metragem] = pd.to_numeric(itens_filtrados[col_metragem], errors='coerce').fillna(0)
                                     
-                                    # Agrupa separando Modelo e Comprimento, e soma as quantidades
-                                    estacas_por_modelo = itens_filtrados.groupby([col_modelo, col_comprimento]).agg({
-                                        col_quantidade: 'sum',
-                                        col_metragem: 'sum'
-                                    }).reset_index()
-                                    
-                                    estacas_por_modelo = estacas_por_modelo.rename(columns={
-                                        col_modelo: 'Estaca',
-                                        col_comprimento: 'Comprimento (m)',
-                                        col_quantidade: 'Quantidade (Unid.)',
-                                        col_metragem: 'Metragem Total'
-                                    })
-                                    
+                                    estacas_por_modelo = itens_filtrados.groupby([col_modelo, col_comprimento]).agg({col_quantidade: 'sum', col_metragem: 'sum'}).reset_index()
+                                    estacas_por_modelo = estacas_por_modelo.rename(columns={col_modelo: 'Estaca', col_comprimento: 'Comprimento (m)', col_quantidade: 'Quantidade (Unid.)', col_metragem: 'Metragem Total'})
                                     st.dataframe(estacas_por_modelo, hide_index=True, use_container_width=True)
                                 else:
                                     st.info("Nenhum item associado a estes pedidos.")
                     else:
                         st.warning("⚠️ Nenhum pedido encontrado para a data selecionada.")
 
-                # --- ABA 2: GESTÃO E STATUS ---
+                # --- ABA 2: GESTÃO E STATUS (AGORA COM VISUALIZAÇÃO DE ITENS) ---
                 with tab_gestao:
                     df_pedidos_inverso = df_pedidos.iloc[::-1]
                     st.dataframe(df_pedidos_inverso, use_container_width=True, hide_index=True)
                     
                     st.divider()
-                    st.subheader("Mudar Status do Pedido")
+                    st.subheader("🔍 Detalhes e Atualização de Status")
                     
                     lista_ids = [str(id) for id in df_pedidos[df_pedidos.columns[0]].tolist() if str(id).strip() != ""]
                     
-                    col_s1, col_s2, col_s3 = st.columns(3)
+                    pedido_selecionado = st.selectbox("Selecione o ID do Pedido para visualizar os detalhes:", [""] + lista_ids)
                     
-                    with col_s1:
-                        pedido_selecionado = st.selectbox("Selecione o ID do Pedido", [""] + lista_ids)
-                    
-                    with col_s2:
-                        novo_status = st.selectbox("Novo Status", ["Pendente", "Em Produção", "Em Transporte", "Entregue", "Cancelado"])
-                    
-                    with col_s3:
-                        st.write("") 
-                        st.write("") 
-                        if st.button("Atualizar Status", type="primary"):
-                            if pedido_selecionado == "":
-                                st.warning("⚠️ Selecione um ID de Pedido primeiro.")
+                    if pedido_selecionado != "":
+                        # --- NOVO: MOSTRA OS DETALHES DO PEDIDO SELECIONADO ---
+                        info_pedido = df_pedidos[df_pedidos[df_pedidos.columns[0]] == pedido_selecionado].iloc[0]
+                        
+                        st.markdown(f"### 📦 Itens do Pedido: **{pedido_selecionado}**")
+                        st.info(f"**Cliente:** {info_pedido[df_pedidos.columns[3]]} | **Obra:** {info_pedido[df_pedidos.columns[4]]} | **Veículo:** {info_pedido[df_pedidos.columns[6]]}")
+                        
+                        if not df_itens.empty:
+                            itens_do_pedido = df_itens[df_itens[df_itens.columns[1]] == pedido_selecionado]
+                            if not itens_do_pedido.empty:
+                                # Filtra apenas as colunas amigáveis para mostrar na tela
+                                colunas_mostrar = [df_itens.columns[2], df_itens.columns[3], df_itens.columns[4], df_itens.columns[5], df_itens.columns[6]]
+                                st.dataframe(itens_do_pedido[colunas_mostrar], use_container_width=True, hide_index=True)
                             else:
+                                st.warning("Nenhum item encontrado para este pedido.")
+                        else:
+                            st.warning("A base de itens está vazia.")
+                            
+                        st.write("")
+                        st.markdown("#### 🔄 Mudar o Status deste Pedido")
+                        
+                        col_s1, col_s2 = st.columns([2, 2])
+                        
+                        with col_s1:
+                            status_atual = info_pedido[df_pedidos.columns[8]]
+                            opcoes_status = ["Pendente", "Em Produção", "Em Transporte", "Entregue", "Cancelado"]
+                            # Já deixa selecionado o status que está na planilha hoje
+                            index_atual = opcoes_status.index(status_atual) if status_atual in opcoes_status else 0
+                            novo_status = st.selectbox("Novo Status", opcoes_status, index=index_atual)
+                        
+                        with col_s2:
+                            st.write("") 
+                            st.write("") 
+                            if st.button("Gravar Novo Status", type="primary"):
                                 with st.spinner("A atualizar no Google Sheets..."):
                                     celula_id = aba_pedidos.find(pedido_selecionado)
                                     if celula_id:
@@ -287,6 +286,11 @@ if 'pdf_pronto' in st.session_state:
         del st.session_state['id_pedido']
         st.rerun()
     st.stop() 
+
+try:
+    st.image("logo.png", width=200)
+except:
+    pass
 
 col_sair1, col_sair2 = st.columns([10, 2])
 with col_sair2:
@@ -371,7 +375,7 @@ if len(st.session_state['carrinho']) > 0:
             with st.spinner("A enviar pedido e a gerar PDF..."):
                 id_pedido = str(uuid.uuid4())[:8].upper()
                 
-                # Aplica o Fuso Horário de Brasília (UTC-3)
+                # --- CORREÇÃO DO FUSO HORÁRIO APLICADA AQUI (UTC-3) ---
                 fuso_br = timezone(timedelta(hours=-3))
                 data_atual = datetime.now(fuso_br).strftime("%d/%m/%Y %H:%M")
                 
