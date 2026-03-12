@@ -82,7 +82,7 @@ def conectar_planilha():
     creds_dict = json.loads(st.secrets["google_credentials"])
     credenciais = Credentials.from_service_account_info(creds_dict, scopes=escopos)
     cliente_gspread = gspread.authorize(credenciais)
-    return cliente_gspread.open("Sistema de Logística - TESTE")
+    return cliente_gspread.open("Sistema de Logística - Estacas")
 
 @st.cache_resource
 def obter_abas():
