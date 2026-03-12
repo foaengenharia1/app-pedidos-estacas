@@ -10,11 +10,10 @@ import base64
 import requests
 import re
 
-# --- CONFIGURAÇÃO DA PÁGINA ---
+
 st.set_page_config(page_title="Sistema de Logística", page_icon="📦", layout="wide") 
 
-# --- 🎨 IDENTIDADE VISUAL ADAPTÁVEL (LIGHT/DARK MODE) E BOTÕES ARREDONDADOS ---
-# --- 🎨 IDENTIDADE VISUAL CORPORATIVA (FORÇANDO O AZUL #044589) ---
+
 st.markdown("""
     <style>
     /* 1. FORÇA A COR AZUL ESCURO EM TODO O TEXTO DA PÁGINA */
@@ -55,7 +54,7 @@ st.markdown("""
     </style>
 """, unsafe_allow_html=True)
 
-# --- 0. TELA DE LOGIN (SEGURANÇA E PERFIS) ---
+
 SENHA_ADMIN = st.secrets["senha_admin"] 
 
 if 'autenticado' not in st.session_state:
@@ -71,7 +70,7 @@ if 'autenticado' not in st.session_state:
     st.session_state['metragens_contratadas'] = {}
     st.session_state['carrinhos'] = {} 
 
-# --- 1. CONFIGURAÇÃO DO GOOGLE SHEETS E MEMÓRIA (CACHE) ---
+
 escopos = [
     "https://www.googleapis.com/auth/spreadsheets",
     "https://www.googleapis.com/auth/drive"
@@ -161,9 +160,7 @@ def calcular_saldos(codigo_contrato, metragens_contratadas):
     return saldos, consumo
 
 
-# ==========================================
-# LÓGICA DA TELA DE LOGIN E PRIMEIRO ACESSO
-# ==========================================
+
 if not st.session_state['autenticado']:
     try:
         st.image("FOÁ ENGENHARIA.png", width=200)
@@ -262,27 +259,24 @@ if not st.session_state['autenticado']:
     st.stop() 
 
 
-# ==========================================
-# ÁREA DO ADMINISTRADOR
-# ==========================================
 if st.session_state['perfil'] == "admin":
     
-    # Cabeçalho: Logo na esquerda, Título no meio, Botões na direita
+   
     col_logo, col_titulo, col_botoes = st.columns([2, 5, 2])
     
     with col_logo:
         try:
-            # Puxa a sua imagem salva na pasta
+
             st.image("FOÁ ENGENHARIA.png", use_container_width=True)
         except:
             st.warning("⚠️ Imagem FOÁ ENGENHARIA.png não encontrada.")
             
     with col_titulo:
-        st.write("") # Espaçamento para alinhar verticalmente
+        st.write("") 
         st.markdown("## ⚙️ Painel do Administrador")
         
     with col_botoes:
-        st.write("") # Espaçamento
+        st.write("") 
         if st.button("🔄 Atualizar"):
             st.cache_data.clear()
             st.rerun()
@@ -321,12 +315,12 @@ if st.session_state['perfil'] == "admin":
                     df_pedidos['Data_Limpa'] = df_pedidos[df_pedidos.columns[5]].astype(str).str.strip()
                     df_filtro_dia = df_pedidos[df_pedidos['Data_Limpa'] == data_filtro_str]
                     
-                    # 🔴 GAVETAS MÁGICAS: Criadas FORA da condição, para funcionarem mesmo no ZERO
+                    
                     gavetas = [st.empty() for _ in range(50)]
                     gaveta_idx = 0
                     
                     if df_filtro_dia.empty:
-                        # Se não tem pedidos, usa a gaveta 0 para o aviso e avança
+                        
                         gavetas[gaveta_idx].info(f"Nenhuma carga agendada ou solicitada para o dia {data_filtro_str}.")
                         gaveta_idx += 1
                     else:
@@ -388,8 +382,7 @@ if st.session_state['perfil'] == "admin":
                                                         st.error("Erro: Pedido não encontrado na planilha.")
                                 gaveta_idx += 1
                                 
-                    # 🔴 LIMPEZA FINAL OBRIGATÓRIA: 
-                    # Se o dia estava vazio, o gaveta_idx é 1. O código destrói os fantasmas do índice 1 ao 49!
+                  
                     for i in range(gaveta_idx, 50):
                         gavetas[i].empty()                   
 
@@ -399,7 +392,7 @@ if st.session_state['perfil'] == "admin":
                 with col_cad1:
                     st.subheader("📝 Novo Contrato de Obra")
                     
-                    # --- 1. BUSCA INTELIGENTE DE CNPJ ---
+                
                     col_cnpj_input, col_cnpj_btn = st.columns([3, 1])
                     with col_cnpj_input:
                         c_cnpj = st.text_input("CNPJ (somente números) *")
@@ -422,7 +415,7 @@ if st.session_state['perfil'] == "admin":
                     
                     c_cliente = st.text_input("Nome do Cliente / Empresa *", value=st.session_state.get('nome_cliente_temp', ''))
 
-                    # --- 2. BUSCA INTELIGENTE DE CEP ---
+                    
                     col_cep_input, col_cep_btn = st.columns([3, 1])
                     with col_cep_input:
                         c_cep = st.text_input("CEP da Obra (somente números) *")
@@ -468,7 +461,7 @@ if st.session_state['perfil'] == "admin":
                     else:
                         c_transportadora = st.selectbox("Transportadoras Registadas *", ["Nenhuma cadastrada"])
                         
-                    # ✅ EXIBE A MENSAGEM SALVA NA MEMÓRIA APÓS O REINÍCIO
+                    
                     if 'msg_transp' in st.session_state:
                         st.success(st.session_state['msg_transp'])
                         del st.session_state['msg_transp']
@@ -490,9 +483,9 @@ if st.session_state['perfil'] == "admin":
                             if btn_add_transp:
                                 if t_nome:
                                     aba_transportadoras.append_row([t_nome, t_cnpj, t_end, t_tel, t_email])
-                                    # ✅ LIMPA APENAS O CACHE DA FUNÇÃO DE LISTAS
+                                    
                                     buscar_cadastros_listas.clear() 
-                                    # ✅ SALVA A MENSAGEM NA MEMÓRIA ANTES DO RERUN
+                                    
                                     st.session_state['msg_transp'] = f"✅ Transportadora '{t_nome}' cadastrada com sucesso!"
                                     st.rerun()
                                 else:
@@ -563,9 +556,7 @@ if st.session_state['perfil'] == "admin":
             
     st.stop() 
 
-# ==========================================
-# ÁREA DO CLIENTE (MÚLTIPLAS CARRETAS E HISTÓRICO 🚚🕰️)
-# ==========================================
+
 
 PESO_POR_METRO = {
     "17x17": 70, "ICP360": 130, "ETR229": 66, "ETR269": 90, "ETR360": 137, 
@@ -575,37 +566,37 @@ PESO_PADRAO = 100
 
 def gerar_recibo_frota_pdf(data_atual, solicitante, cliente, obra, obs, carretas_info):
     
-    # Criamos uma classe personalizada para injetar Cabeçalho e Rodapé em todas as páginas
+  
     class PDFRecibo(FPDF):
         def header(self):
-            # 1. Injeta a Logo da FOÁ no canto superior esquerdo
+           
             try:
                 self.image("FOÁ ENGENHARIA.png", 10, 8, 35)
             except:
-                pass # Se a imagem não for encontrada no servidor, ele gera o PDF sem quebrar
+                pass 
             
-            # 2. Título Centralizado com o Azul Corporativo (#044589 -> RGB: 4, 69, 137)
+           
             self.set_font("helvetica", "B", 16)
             self.set_text_color(4, 69, 137) 
             self.cell(0, 15, "Comprovante de Pedido de Estacas", ln=True, align="C")
             
-            # Espaçamento entre o cabeçalho e o texto principal
+            
             self.ln(10) 
-            self.set_text_color(0, 0, 0) # Volta a cor da letra para preto
+            self.set_text_color(0, 0, 0) 
 
         def footer(self):
-            # 3. Rodapé posicionado a 1,5cm do final da página
+            
             self.set_y(-15)
             self.set_font("helvetica", "I", 10)
-            self.set_text_color(100, 100, 100) # Cinza escuro elegante
-            # Endereço da Sede da FOÁ
+            self.set_text_color(100, 100, 100) 
+            
             self.cell(0, 10, "Avenida Buriti, 3185 - Feital - Pindamonhangaba - SP", align="C")
 
-    # Inicia a criação do PDF usando a nossa regra personalizada acima
+  
     pdf = PDFRecibo()
     pdf.add_page()
     
-    # --- CONTEÚDO DO PDF ---
+  
     pdf.set_font("helvetica", "", 12)
     pdf.cell(0, 8, f"Data da Solicitacao: {data_atual}", ln=True)
     pdf.cell(0, 8, f"Solicitante: {solicitante}", ln=True)
@@ -654,25 +645,23 @@ if 'pdf_pronto' in st.session_state:
         st.session_state['carrinhos'] = {}
         st.rerun()
     st.stop()
-# ==========================================
-# CABEÇALHO DA ÁREA DO CLIENTE
-# ==========================================
+
 col_logo_cli, col_titulo_cli, col_botoes_cli = st.columns([2, 5, 2])
 
 with col_logo_cli:
     try:
-        # Puxa a mesma imagem e usa o tamanho adaptável da coluna (igual ao admin)
+        
         st.image("FOÁ ENGENHARIA.png", use_container_width=True)
     except:
         st.warning("⚠️ Imagem FOÁ ENGENHARIA.png não encontrada.")
         
 with col_titulo_cli:
-    st.write("") # Espaçamento para alinhar verticalmente
+    st.write("") 
     st.markdown("## 📦 Portal do Cliente")
     
 with col_botoes_cli:
-    st.write("") # Espaçamento
-    # Adicionei uma 'key' para evitar conflito com o botão de sair do admin
+    st.write("") 
+    
     if st.button("🚪 Sair / Logout", key="btn_sair_cliente"):
         st.session_state['autenticado'] = False
         st.session_state['perfil'] = ""
@@ -682,9 +671,7 @@ st.divider()
 
 tab_novo_pedido, tab_historico = st.tabs(["🚀 Nova Solicitação", "🕰️ Histórico de Pedidos"])
 
-# ==========================================
-# ABA 1: FAZER NOVO PEDIDO
-# ==========================================
+
 with tab_novo_pedido:
     st.subheader("1. Planejamento da Frota")
     num_carretas = st.number_input("Quantas carretas deseja solicitar neste pedido?", min_value=1, max_value=10, value=1, step=1)
@@ -752,7 +739,7 @@ with tab_novo_pedido:
                 
             st.write("**Adicionar Estacas a esta carga:**")
             
-            # ✅ Transformamos em 4 colunas para o botão ficar na mesma linha
+            
             col_b1, col_b2, col_b3, col_b4 = st.columns([3, 2, 2, 3])
             
             with col_b1:
@@ -762,10 +749,10 @@ with tab_novo_pedido:
             with col_b3:
                 quantidade = st.number_input("Quantidade", min_value=1, step=1, key=f"qtd_{i}")
             with col_b4:
-                # Espaçamento em HTML para alinhar o botão perfeitamente com as caixas de texto
+                
                 st.markdown("<div style='margin-top: 28px;'></div>", unsafe_allow_html=True) 
                 
-                # Transformamos em type="primary" e usamos o ícone nativo
+                
                 if st.button("Adicionar", icon=":material/add_circle:", key=f"btn_add_{i}", type="primary", use_container_width=True):
                     
                     metragem_total = quantidade * int(comprimento)
@@ -897,9 +884,7 @@ with tab_novo_pedido:
     else:
         st.info("Adicione estacas aos veículos acima para liberar a finalização do pedido.")
 
-# ==========================================
-# ABA 2: HISTÓRICO DE PEDIDOS (COM PAINÉIS EXPANSÍVEIS)
-# ==========================================
+
 with tab_historico:
     st.subheader("🕰️ Seus Pedidos Anteriores")
     st.markdown("Clique sobre um pedido para ver os detalhes da carga solicitada.")
