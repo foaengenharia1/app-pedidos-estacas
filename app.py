@@ -84,26 +84,33 @@ def conectar_planilha():
     return cliente_gspread.open("Sistema de Logística - Estacas")
 
 @st.cache_resource
+@st.cache_resource
 def obter_abas():
     planilha = conectar_planilha()
+    
+    # Mapeia todas as abas existentes antes de tentar criar algo novo
+    titulos_abas = [aba.title for aba in planilha.worksheets()]
+    
     aba_pedidos = planilha.worksheet("Pedidos")
     aba_itens = planilha.worksheet("Itens_Pedido")
     
     if len(aba_pedidos.row_values(1)) < 10:
         aba_pedidos.update_cell(1, 10, "Codigo_Contrato")
 
-    try:
+    # Verificação segura para a aba Contratos
+    if "Contratos" in titulos_abas:
         aba_contratos = planilha.worksheet("Contratos")
-    except:
+    else:
         aba_contratos = planilha.add_worksheet(title="Contratos", rows="1000", cols="4")
         aba_contratos.append_row(["Codigo", "Cliente", "Obra", "Itens"])
 
     aba_cadastros = planilha.worksheet("CADASTROS")
     aba_metragens = planilha.worksheet("Cadastros_Metragens")
     
-    try:
+    # Verificação segura para a aba Transportadoras
+    if "Transportadoras" in titulos_abas:
         aba_transportadoras = planilha.worksheet("Transportadoras")
-    except:
+    else:
         aba_transportadoras = planilha.add_worksheet(title="Transportadoras", rows="1000", cols="5")
         aba_transportadoras.append_row(["Nome", "CNPJ", "Endereco", "Telefone", "Email"])
     
